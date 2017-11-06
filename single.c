@@ -12,14 +12,20 @@
 #include "servers.h"
 
 /* The amount an npc moves after every iteration */
-#define KM_PER_IT (0.01f * 1000.0f)
+#define KM_PER_IT (0.01f / 1000.0f)
 
 /* move all of the npcs based on the global speed, their
  * direction and their coordinates. This function does NOT
  * move them back in bounds.
  */
-static void move_npcs(npc *npcs, uint64_t npcs_per_continent) {
 
+#define PI 3.14159265
+
+static void move_npcs(npc *npcs, uint64_t npcs_per_continent) {
+	for (uint64_t i = 0; i < npcs_per_continent; ++i) {
+		npcs[i].x += cos(npcs[i].dir * PI / 180.0) * KM_PER_IT;
+		npcs[i].y += sin(npcs[i].dir * PI / 180.0) * KM_PER_IT;
+	}
 }
 
 /* Assign every npc a random x, y and direction. Set inter to 0 */
@@ -64,10 +70,10 @@ uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_
 /* for seed */
 #include <time.h>
 
-#define PREC 1000
+#define PREC 10000.0
 
 uint8_t float_eq(float one, float two) {
-	if((uint32_t)one * PREC == (uint32_t)two * PREC) {
+	if((uint32_t)(one * PREC) == (uint32_t)(two * PREC)) {
 		return 1;
 	}
 	return 0;
@@ -93,6 +99,7 @@ void test_correct_npc(uint64_t len, npc *npcs, uint8_t vol) {
 }
 
 void test_fill_continent() {
+	printf("\nTesting filling continents.\n");
 	/* test a small continent */
 	uint64_t len = 16;
 	npc *npcs = (npc*) malloc(len * sizeof(npc));
@@ -107,7 +114,10 @@ void test_fill_continent() {
 	free(npcs);
 }
 
+
+/* this test only works when KM_PER_IT is 0.00001 */
 void test_move_npcs() {
+	printf("\nBeginning test on moving npcs.\n");
 	/* a list of six NPCs we will do operations on */
 	uint64_t n = 6;
 	npc npcs[n];
@@ -123,7 +133,18 @@ void test_move_npcs() {
 	/* x and y results */
 	float res[n * 2];
 	uint8_t i = 0;
-	res[i++] = 0.10000906; res[i++] = 0.20000422;
+	res[i++] = 0.10000906; res[i++] = 0.20000422;	
+	res[i++] = 0.30000809; res[i++] = 0.70000588;
+	res[i++] = 0.60001; res[i++] = 0.4;
+	res[i++] = 0.09999133; res[i++] = 0.300005;
+	res[i++] = 0.51999015; res[i++] = 0.1999982;
+	res[i++] = 0.10501; res[i++] = 0.9;
+
+	for (uint8_t i1 = 0, i2 = 0; i1 < 6; ++i1) {
+		printf("resx: %.8f npcx: %.8f\tresy %.8f npcy: %.8f\n", res[i2], npcs[i1].x, res[i2 + 1], npcs[i1].y);
+		assert(float_eq(npcs[i1].x, res[i2++]));
+		assert(float_eq(npcs[i1].y, res[i2++]));
+	}
 }
 
 int main() {
