@@ -44,7 +44,9 @@ static void fill_continent(npc *npcs, uint64_t npcs_per_continent) {
 		npcs[i].x = (float) rand() / (float) RAND_MAX;
 		npcs[i].y = (float) rand() / (float) RAND_MAX;
 		npcs[i].dir = (float) rand() / (float) RAND_MAX * 360.0f;
+		npcs[i].inter = 0;
 	}
+	/* break here */
 }
 
 #define DEC 1000
@@ -56,13 +58,38 @@ static inline float get_random_float_360(uint64_t one, uint64_t two) {
 }
 
 /* If one of the x or y values of the npc is 0.0 or 1.0, then the npc must get a new direction. */
-static void give_new_dir(npc *npcs, uint64_t npcs_per_continent) {
+static void give_new_dir(npc *npcs, uint64_t npcs_per_continent, uint64_t extra) {
 	for (uint64_t i = 0; i < npcs_per_continent; ++i) {
-		if (npcs[i].x == 1.0) npcs[i].dir = get_random_float_360(i, 321);
-		if (npcs[i].x == 0.0) npcs[i].dir = get_random_float_360(i, 321);
-		if (npcs[i].y == 1.0) npcs[i].dir = get_random_float_360(i, 321);
-		if (npcs[i].y == 0.0) npcs[i].dir = get_random_float_360(i, 321);
+		if (npcs[i].x == 1.0) npcs[i].dir = get_random_float_360(i, extra);
+		if (npcs[i].x == 0.0) npcs[i].dir = get_random_float_360(i, extra);
+		if (npcs[i].y == 1.0) npcs[i].dir = get_random_float_360(i, extra);
+		if (npcs[i].y == 0.0) npcs[i].dir = get_random_float_360(i, extra);
 	}
+}
+
+/* utility function to compute distances */
+static inline float dist(npc *one, npc *two) {
+	return sqrt((one->x - two->x) * (one->x - two -> x) + (one->y - two->y) * (one->y - two->y));
+}
+
+/* This function has every npc interact with another. */
+static void interact_with_all(npc *npcs, uint64_t npcs_per_continent, float range_to_interact) {
+	/* curid is the index of the npcs giving interactions */
+	for (uint64_t curid = 0; curid < npcs_per_continent; ++curid) {
+		/* recid is for the npc that RECieves the interaction (is incremented) */
+		for (uint64_t recid = 0; recid < npcs_per_continent; ++recid) {
+			if (dist(&npcs[curid], &npcs[recid]) < range_to_interact && curid != recid)
+				++npcs[recid].inter;
+		}
+	}
+}
+
+/* returns the count of how many interactions there were */
+static uint64_t get_total_count(npc *npcs, uint64_t npcs_per_continent) {
+	uint64_t ret = 0;
+	for (uint64_t i = 0; i < npcs_per_continent; ++i)
+		ret += npcs[i].inter;
+	return ret;
 }
 
 uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_continent, float range_to_interact, uint64_t num_iterations) {
@@ -74,14 +101,36 @@ uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_
 	 * second is to allocate for all of the others
 	 */
 	npc **npcs = (npc**) malloc(num_continents * sizeof(npc*));
-	for (uint16_t i = 0; i < num_continents; ++i)
-		npcs[i] = (npc*) malloc(npcs_per_continent * sizeof(npc*));
+	for (uint16_t i = 0; i < num_continents; ++i) { 
+		npcs[i] = (npc*) malloc(npcs_per_continent * sizeof(npc));
+		fill_continent(npcs[i], npcs_per_continent);
+	}
 
-	/* free allocated memory */
-	for (uint16_t i = 0; i < num_continents; ++i)
+	/* outer loop controls the iterations given. */
+	for (uint64_t it = 0; it < num_iterations; ++it) {
+		/* This loop controls every continent */
+		for (uint16_t cont = 0; cont < num_continents; ++cont) {
+			/* move all of the npcs in this continent. */
+			move_npcs(npcs[cont], npcs_per_continent);
+			/* move back in bounds if need be */
+			move_in_bounds(npcs[cont], npcs_per_continent);
+			/* give them new directions if need be */
+			give_new_dir(npcs[cont], npcs_per_continent, it);
+			/* check if they interacted */
+			interact_with_all(npcs[cont], npcs_per_continent, range_to_interact);
+		}
+	}
+
+	uint64_t ret = 0;
+	/* free allocated memory and get total count */
+	for (uint16_t i = 0; i < num_continents; ++i) {
+		ret += get_total_count(npcs[i], npcs_per_continent); 
 		free(npcs[i]);
+	}
 	free(npcs);
-	
+
+	/* return the count */
+	return ret;
 }
 
 #if defined TEST_SINGLE_
@@ -259,7 +308,7 @@ void test_give_new_dir() {
 	npcs[3].x = 0.0; npcs[3].y = 1.0; npcs[3].dir = 128.0;
 	npcs[4].x = 0.4; npcs[4].y = 0.1; npcs[4].dir = 256.0;
 
-	give_new_dir(npcs, n);
+	give_new_dir(npcs, n, 321);
 
 	printf("The new direction of npcs at %d is %f\n", 0, npcs[0].dir);
 	assert(npcs[0].dir != 8.125);
@@ -275,6 +324,40 @@ void test_give_new_dir() {
 	printf("\nTest giving new directions completed.\n");
 }
 
+void test_interact_with_all() {
+	printf("\nTesting interact with all.\n");
+	uint64_t n = 5;
+	npc npcs[n];
+
+	/* the current */
+	uint8_t i = 0;
+	npcs[i].x = 0.1; npcs[i].y = 0.1; npcs[i++].inter = 0;
+	npcs[i].x = 0.1; npcs[i].y = 0.100001; npcs[i++].inter = 0;
+	npcs[i].x = 0.100001; npcs[i].y = 0.1; npcs[i++].inter = 0;
+	npcs[i].x = 0.2; npcs[i].y = 0.2; npcs[i++].inter = 0;
+	npcs[i].x = 0.2001; npcs[i].y = 0.2; npcs[i++].inter = 0;
+	
+	i = 0;
+
+	interact_with_all(npcs, n, 0.001f);
+
+	printf("Npc[%d]: %lu\n", i, npcs[i].inter);
+	assert(npcs[i++].inter == 2);
+	printf("Npc[%d]: %lu\n", i, npcs[i].inter);
+	assert(npcs[i++].inter == 2);
+	printf("Npc[%d]: %lu\n", i, npcs[i].inter);
+	assert(npcs[i++].inter == 2);
+	printf("Npc[%d]: %lu\n", i, npcs[i].inter);
+	assert(npcs[i++].inter == 1);
+	printf("Npc[%d]: %lu\n", i, npcs[i].inter);
+	assert(npcs[i++].inter == 1);
+
+	/* test get total */
+	assert(get_total_count(npcs, n) == 8);
+
+	printf("\nDone testing interact with all.\n");
+}
+
 int main() {
 	srand(time(NULL));
 	test_fill_continent();
@@ -282,6 +365,7 @@ int main() {
 	test_move_in_bounds();
 	test_get_random_float_360();
 	test_give_new_dir();
+	test_interact_with_all();
 }
 
 #endif

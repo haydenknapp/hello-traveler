@@ -3,7 +3,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <time.h>
-
+#include "timer.h"
+#include "servers.h"
 
 uint8_t get_help(int argc, char **argv) {
 	for (int i = 0; i < argc; ++i) {
@@ -175,15 +176,24 @@ int main(int argc, char **argv) {
 		printf("Error finding the device specified. Exiting.\n");
 		return 1;
 	}
+
 	printf("device: %d\n", device);
-	/* initilize game server
+	/* start time */
+	float elapsed;
+	timer_start();
+	/* initilize game server */
+	uint64_t result;
 	switch (device) {
 		case single:
-			single_run(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations);
+			result = start_single(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations);
 			break;
-	}*/
+	}
+	timer_stop(elapsed);
 	/* get stats from game server */
-
+	printf("\nThe total number of interactions: %lu\n", result);
+	printf("The total elapsed time was %f seconds.\n", elapsed);
+	printf("Iterations per second: %f\n", (float)num_iterations / elapsed);
+	printf("Number of npcs: %lu\n", npcs_per_continent * num_continents);
 	/* close game server */
 	return EXIT_SUCCESS;
 }
