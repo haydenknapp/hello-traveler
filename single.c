@@ -11,8 +11,10 @@
 /* header file */
 #include "servers.h"
 
-/* The amount an npc moves after every iteration */
-#define KM_PER_IT (0.01f / 1000.0f)
+/* print an npc */
+void print_npc(npc *pr) {
+	printf("x: %f, y: %f, dir: %f\n", pr->x, pr->y, pr->dir);
+}
 
 /* move all of the npcs based on the global speed, their
  * direction and their coordinates. This function does NOT
@@ -21,10 +23,10 @@
 
 #define PI 3.14159265
 
-static void move_npcs(npc *npcs, uint64_t npcs_per_continent) {
+static void move_npcs(npc *npcs, uint64_t npcs_per_continent, float npc_speed) {
 	for (uint64_t i = 0; i < npcs_per_continent; ++i) {
-		npcs[i].x += cos(npcs[i].dir * PI / 180.0) * KM_PER_IT;
-		npcs[i].y += sin(npcs[i].dir * PI / 180.0) * KM_PER_IT;
+		npcs[i].x += cos(npcs[i].dir * PI / 180.0) * npc_speed;
+		npcs[i].y += sin(npcs[i].dir * PI / 180.0) * npc_speed;
 	}
 }
 
@@ -92,7 +94,7 @@ static uint64_t get_total_count(npc *npcs, uint64_t npcs_per_continent) {
 	return ret;
 }
 
-uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_continent, float range_to_interact, uint64_t num_iterations) {
+uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_continent, float range_to_interact, uint64_t num_iterations, float npc_speed) {
 	/* initalize random seed */
 	srand(seed);
 
@@ -111,7 +113,7 @@ uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_
 		/* This loop controls every continent */
 		for (uint16_t cont = 0; cont < num_continents; ++cont) {
 			/* move all of the npcs in this continent. */
-			move_npcs(npcs[cont], npcs_per_continent);
+			move_npcs(npcs[cont], npcs_per_continent, npc_speed);
 			/* move back in bounds if need be */
 			move_in_bounds(npcs[cont], npcs_per_continent);
 			/* give them new directions if need be */
@@ -156,9 +158,6 @@ uint8_t feq(float one, float two) {
 	return 0;
 }
 
-void print_npc(npc *pr) {
-	printf("x: %f, y: %f, dir: %f\n", pr->x, pr->y, pr->dir);
-}
 
 /* check if all of the npcs in a list have legal values */
 void test_correct_npc(uint64_t len, npc *npcs, uint8_t vol) {
@@ -193,12 +192,14 @@ void test_fill_continent() {
 }
 
 
-/* this test only works when KM_PER_IT is 0.00001 */
+/* Test if npcs move the correct amount. */
 void test_move_npcs() {
 	printf("\nBeginning test on moving npcs.\n");
 	/* a list of six NPCs we will do operations on */
 	uint64_t n = 6;
 	npc npcs[n];
+	/* The amount the npcs will move in an iteration */
+	float ddistance = (0.01f / 1000.0f);
 	npcs[0].x = 0.1f; npcs[0].y = 0.2f; npcs[0].dir = 25.0f;
 	npcs[1].x = 0.3f; npcs[1].y = 0.7f; npcs[1].dir = 36.0f;
 	npcs[2].x = 0.6f; npcs[2].y = 0.4f; npcs[2].dir = 0.0f;
@@ -206,7 +207,7 @@ void test_move_npcs() {
 	npcs[4].x = 0.52f; npcs[4].y = 0.2f; npcs[4].dir = 190.0f;
 	npcs[5].x = 0.105f; npcs[5].y = 0.9f; npcs[5].dir = 360.0f;
 
-	move_npcs(npcs, n);
+	move_npcs(npcs, n, ddistance);
 
 	/* x and y results */
 	float res[n * 2];

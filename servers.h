@@ -17,6 +17,6 @@ typedef struct {
 } npc;
 
 uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_continent,
-	       		float range_to_interact, uint64_t num_iterations);
+	       		float range_to_interact, uint64_t num_iterations, float npc_speed);
 
 #endif

@@ -112,6 +112,24 @@ uint8_t get_device(uint8_t *device, int argc, char **argv) {
 	*device = DEF_DEV;
 	return 0;
 }
+
+#define DEF_NPC_SPD 0.0001
+
+uint8_t get_npc_speed(float *npc_speed, int argc, char **argv) {
+	for (int i = 0; i < argc - 1; ++i) {
+		if (strcmp(argv[i], "-spd") == 0) {
+			*npc_speed = atof(argv[i + 1]);
+		}
+	}
+	if (strcmp(argv[argc - 1], "-spd") == 0) {
+		return 1;
+	}
+	else
+		return 0;
+	*npc_speed = DEF_NPC_SPD;
+	return 0;
+}
+
 /* the seed of generation */
 uint64_t seed;
 /* the amount of continents */
@@ -124,6 +142,8 @@ float range_to_interact;
 uint64_t num_iterations;
 /* what device we will run on */
 uint8_t device;
+/* how fast the npcs move per iteration */
+float npc_speed;
 
 int main(int argc, char **argv) {
 	/* see if the user needs help */
@@ -136,7 +156,8 @@ int main(int argc, char **argv) {
 			-npcpc\tnpcs per continent\n \
 			-rti\trange to interact\n \
 			-ni\tnumber of iterations\n \
-			-dev\tthe device (0 = 1 thread, 1 = multi, 2 = GPU)\n");
+			-dev\tthe device (0 = 1 thread, 1 = multi, 2 = GPU)\n\
+			-spd\tthe speed of each npc(float)\n");
 		return 1;
 	}
 	else {
@@ -176,8 +197,11 @@ int main(int argc, char **argv) {
 		printf("Error finding the device specified. Exiting.\n");
 		return 1;
 	}
-
-	printf("device: %d\n", device);
+	if (get_npc_speed(&npc_speed, argc, argv)) {
+		printf("Error parsing npc speed. Exiting.\n");
+		return 1;
+	}
+	printf("speed: %f\n", npc_speed);
 	/* start time */
 	float elapsed;
 	timer_start();
@@ -185,7 +209,7 @@ int main(int argc, char **argv) {
 	uint64_t result;
 	switch (device) {
 		case single:
-			result = start_single(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations);
+			result = start_single(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed);
 			break;
 	}
 	timer_stop(elapsed);
