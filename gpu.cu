@@ -48,7 +48,6 @@ static void fill_continent(npc *npcs, uint64_t npcs_per_continent) {
 		npcs[i].dir = (float) rand() / (float) RAND_MAX * 360.0f;
 		npcs[i].inter = 0;
 	}
-	/* break here */
 }
 
 #define DEC 1000

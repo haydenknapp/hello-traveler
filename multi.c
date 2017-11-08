@@ -11,10 +11,16 @@
 /* header file */
 #include "servers.h"
 
+/* for printing npcs if need be */
+#include <stdio.h>
+
+/* pthread */
+#include <pthread.h>
+
 /* print an npc */
-//void print_npc(npc *pr) {
-//	printf("x: %f, y: %f, dir: %f\n", pr->x, pr->y, pr->dir);
-//}
+static void print_npc(npc *pr) {
+	printf("x: %f, y: %f, dir: %f\n", pr->x, pr->y, pr->dir);
+}
 
 /* move all of the npcs based on the global speed, their
  * direction and their coordinates. This function does NOT
@@ -94,7 +100,32 @@ static uint64_t get_total_count(npc *npcs, uint64_t npcs_per_continent) {
 	return ret;
 }
 
-uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_continent, float range_to_interact, uint64_t num_iterations, float npc_speed) {
+/* This function processes the four steps on a seperate thread (for p threads)
+ * It takes a void pointer to a copy of the structure below.
+ */
+
+typedef struct {
+	npc *npcs;
+	uint64_t n;
+	float speed;
+	uint64_t it;
+	float rti;
+} proc_param;
+
+static void split_process(proc_param *param) {
+	//proc_param n_param = (proc_param) (*param);
+	proc_param n_param = *param;
+	/* move all of the npcs in this continent. */
+	move_npcs(n_param.npcs, n_param.n, n_param.speed);
+	/* move back in bounds if need be */
+	move_in_bounds(n_param.npcs, n_param.n);
+	/* give them new directions if need be */
+	give_new_dir(n_param.npcs, n_param.n, n_param.it);
+	/* check if they interacted */
+	interact_with_all(n_param.npcs, n_param.n, n_param.rti);
+}
+
+uint64_t start_multi(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_continent, float range_to_interact, uint64_t num_iterations, float npc_speed, uint8_t num_threads) {
 	/* initalize random seed */
 	srand(seed);
 
@@ -108,20 +139,38 @@ uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_
 		fill_continent(npcs[i], npcs_per_continent);
 	}
 
+	/* pthread ids */
+	pthread_t *ids = (pthread_t*) malloc(num_threads * sizeof(pthread_t));
+	/* parameters to each function */
+	proc_param *params = (proc_param*) malloc(num_threads * sizeof(proc_param));
+
 	/* outer loop controls the iterations given. */
 	for (uint64_t it = 0; it < num_iterations; ++it) {
 		/* This loop controls every continent */
 		for (uint16_t cont = 0; cont < num_continents; ++cont) {
-			/* move all of the npcs in this continent. */
-			move_npcs(npcs[cont], npcs_per_continent, npc_speed);
-			/* move back in bounds if need be */
-			move_in_bounds(npcs[cont], npcs_per_continent);
-			/* give them new directions if need be */
-			give_new_dir(npcs[cont], npcs_per_continent, it);
-			/* check if they interacted */
-			interact_with_all(npcs[cont], npcs_per_continent, range_to_interact);
+			/* spawn threads */
+			for (uint8_t t = 0; t < num_threads; ++t) {
+				/* get the pointer to the first npc of the thread */
+				params[t].npcs = &npcs[cont][t * (npcs_per_continent / num_threads)];
+				/* get the amount of npcs the thread will process */
+				params[t].n = npcs_per_continent / num_threads;
+				/* speed is always the same */
+				params[t].speed = npc_speed;
+				/* the iteration is used for angle gen */
+				params[t].it = it;
+				/* range to interact */
+				params[t].rti = range_to_interact;
+				pthread_create(&ids[t], NULL, split_process, &params[t]);
+			}
+			/* join the threads */
+			for (uint8_t t = 0; t < num_threads; ++t)
+				pthread_join(ids[t], NULL);
 		}
 	}
+
+	/* free ids and parameters */
+	free(ids);
+	free(params);
 
 	uint64_t ret = 0;
 	/* free allocated memory and get total count */

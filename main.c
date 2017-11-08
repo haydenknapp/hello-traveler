@@ -97,11 +97,16 @@ uint8_t get_num_iterations(uint64_t *num_iterations, int argc, char **argv) {
 enum device_ids{single=0, multi, gpu=2};
 
 #define DEF_DEV (single)
+#define N_THREAD_DEF (8)
 
-uint8_t get_device(uint8_t *device, int argc, char **argv) {
+uint8_t get_device(uint8_t *device, uint8_t *num_threads, int argc, char **argv) {
 	for (int i = 0; i < argc - 1; ++i) {
 		if (strcmp(argv[i], "-dev") == 0) {
 			*device = atoi(argv[i + 1]);
+			if (i + 2 > argc - 1 || argv[i + 2][0] == '-' && *device == 1)
+				*num_threads = N_THREAD_DEF;
+			else
+				*num_threads = atoi(argv[i + 2]);
 		}
 	}
 	if (strcmp(argv[argc - 1], "-dev") == 0 || *device > gpu) {
@@ -140,8 +145,9 @@ uint64_t npcs_per_continent;
 float range_to_interact;
 /* how many iterations the program should run */
 uint64_t num_iterations;
-/* what device we will run on */
+/* what device we will run on and the number of threads */
 uint8_t device;
+uint8_t num_threads;
 /* how fast the npcs move per iteration */
 float npc_speed;
 
@@ -156,7 +162,7 @@ int main(int argc, char **argv) {
 			-npcpc\tnpcs per continent\n \
 			-rti\trange to interact\n \
 			-ni\tnumber of iterations\n \
-			-dev\tthe device (0 = 1 thread, 1 = multi, 2 = GPU)\n\
+			-dev\tthe device (0 = 1 thread, 1 = multi, 2 = GPU)(if multi, then specify number of threads)\n\
 			-spd\tthe speed of each npc(float)\n");
 		return 1;
 	}
@@ -193,10 +199,11 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	printf("number of iterations: %lu\n", num_iterations);
-	if (get_device(&device, argc, argv)) {
+	if (get_device(&device, &num_threads, argc, argv)) {
 		printf("Error finding the device specified. Exiting.\n");
 		return 1;
 	}
+	printf("Device is %d and the number of threads is %d\n", device, num_threads);
 	if (get_npc_speed(&npc_speed, argc, argv)) {
 		printf("Error parsing npc speed. Exiting.\n");
 		return 1;
@@ -210,6 +217,9 @@ int main(int argc, char **argv) {
 	switch (device) {
 		case single:
 			result = start_single(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed);
+			break;
+		case multi:
+			result = start_multi(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed, num_threads);
 			break;
 	}
 	timer_stop(elapsed);
