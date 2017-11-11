@@ -1,16 +1,17 @@
+/* Hayden Knapp
+ *
+ * Implementation of the single threaded npc processor found in servers.h
+ */
+
 
 /* malloc, free */
 #include <stdlib.h>
-
 /* for tests and possibly others. */
 #include <assert.h>
-
 /* cos, sin, tan, sqrt, etc */
 #include <math.h>
-
 /* header file */
 #include "servers.h"
-
 /* for the display */
 #include "contdisplay.h"
 

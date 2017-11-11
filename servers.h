@@ -1,6 +1,14 @@
+/* Hayden Knapp
+ *
+ * Here are the prototypes for the three main functions that compute what npcs are
+ * doing and when they interact. They all do the same and return the same, but
+ * differ in what hardware processes them.
+ */
+
 #ifndef SERVERS_H_
 #define SERVERS_H_
 
+/* standard ints */
 #include <stdint.h>
 
 /* This is how all npcs will be kept track of. x and y are always between

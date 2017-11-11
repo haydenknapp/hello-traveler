@@ -1,9 +1,23 @@
+/* Hayden Knapp
+ *
+ * This is the main function for the hello traveler program. The only functionality here
+ * consists of parsing command line arguments and calling the functions that do all the
+ * work. There are also statistics gathered and displayed here.
+ */
+
+/* used for output */
 #include <stdio.h>
+/* random */
 #include <stdlib.h>
+/* for parsing strings */
 #include <string.h>
+/* standard ints */
 #include <stdint.h>
+/* used for random seed */
 #include <time.h>
+/* used for precise timing */
 #include "timer.h"
+/* the implmentations */
 #include "servers.h"
 
 uint8_t get_help(int argc, char **argv) {

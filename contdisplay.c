@@ -1,3 +1,4 @@
+/* header file for these functions */
 #include "contdisplay.h"
 
 void display_cont_init(display_cont* this_display, uint16_t pixels_per_length, npc* npcs, uint64_t n_npcs) {

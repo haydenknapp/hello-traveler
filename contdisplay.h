@@ -1,18 +1,20 @@
+/* Hayden Knapp
+ *
+ * Header file for the continent display. The continent display is useful for seeing how
+ * npcs move in only one continent. This helps insure that the npcs are moving properly
+ * and serves as a visual test. This feature slows the program down however, and is an
+ * argument for the hello traveler program.
+ */
+
 #ifndef DISPLAY_CONT_H_
 #define DISPLAY_CONT_H_
 
+/* standard ints for args */
 #include <stdint.h>
-#include <stdio.h>
-#include <stdbool.h>
-
+/* SDL2 libraries for drawing */
 #include <SDL2/SDL.h>
-
+/* used only to get the npc structure */
 #include "servers.h"
-
-/* This is a way for the viewer to view npc movements. It only
- * works on one continent and should only be used for debugging
- * or a proof of npc movement, as it slows the program down.
- */
 
 /* Store information related to a continent display.
  * This can consist of NPC and continent info used
@@ -47,4 +49,5 @@ void display_cont_destroy(display_cont*);
  * the provided display's information has
  */
 void display_cont_update(display_cont*);
+
 #endif
