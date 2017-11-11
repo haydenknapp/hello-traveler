@@ -1,14 +1,14 @@
 CC=nvcc
-CFLAGS=-O3 -Wall
+CFLAGS=-O3 -ccbin clang-3.8 -arch=sm_50
 DEPS=servers.h
-OBJ=main.o single.o multi.o gpu.o
-LIBS=-lm -pthread
+OBJ=main.o single.o contdisplay.o
+LIBS=-lm -lSDL2
 
-gpu.o: gpu.cu
-	nvcc -c gpu.o -O3 -lm -arch=sm_50
-
-%.o: %.c $(DEPS)
+%.o: %.c* $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS) $(LIBS)
 
 hellotraveler: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+
+clean:
+	rm *.o hellotraveler

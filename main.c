@@ -81,12 +81,12 @@ uint8_t get_range_to_interact(float *range_to_interact, int argc, char **argv) {
 
 uint8_t get_num_iterations(uint64_t *num_iterations, int argc, char **argv) {
 	for (int i = 0; i < argc - 1; ++i) {
-		if (strcmp(argv[i], "-ni") == 0) {
+		if (strcmp(argv[i], "-i") == 0) {
 			*num_iterations = atoi(argv[i + 1]);
 			return 0;
 		}
 	}
-	if (strcmp(argv[argc - 1], "-ni") == 0) {
+	if (strcmp(argv[argc - 1], "-i") == 0) {
 		return 1;
 	}
 	*num_iterations = DEF_NUM_IT;
@@ -135,6 +135,18 @@ uint8_t get_npc_speed(float *npc_speed, int argc, char **argv) {
 	return 0;
 }
 
+#define DEF_DISPLAY 0
+
+uint8_t get_display(uint8_t *display, int argc, char **argv) {
+	for (int i = 0; i < argc; ++i) {
+		if (strcmp(argv[i], "-d") == 0) {
+			*display = 1;
+			return 0;
+		}
+	}
+	*display = DEF_DISPLAY;
+	return 0;
+}
 /* the seed of generation */
 uint64_t seed;
 /* the amount of continents */
@@ -150,6 +162,8 @@ uint8_t device;
 uint8_t num_threads;
 /* how fast the npcs move per iteration */
 float npc_speed;
+/* whether the user wants to display using gui or not */
+uint8_t display;
 
 int main(int argc, char **argv) {
 	/* see if the user needs help */
@@ -161,9 +175,10 @@ int main(int argc, char **argv) {
 			-nc\tnumber of continents\n \
 			-npcpc\tnpcs per continent\n \
 			-rti\trange to interact\n \
-			-ni\tnumber of iterations\n \
-			-dev\tthe device (0 = 1 thread, 1 = multi, 2 = GPU)(if multi, then specify number of threads)\n\
-			-spd\tthe speed of each npc(float)\n");
+			-i\tnumber of iterations\n \
+			-dev\tthe device (0 = 1 thread, 1 = multi, 2 = GPU)(if multi, then specify number of threads after the number)\n \
+			-spd\tthe speed of each npc(float)\n \
+			-d\t do display (no other args)\n");
 		return 1;
 	}
 	else {
@@ -209,6 +224,16 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	printf("speed: %f\n", npc_speed);
+	if (get_display(&display, argc, argv)) {
+		printf("Error parsing display. Exiting.\n");
+		return 1;
+	}
+	if (display)
+		printf("Display is on.\n");
+	else
+		printf("Display is off.\n");
+
+
 	/* start time */
 	float elapsed;
 	timer_start();
@@ -216,12 +241,15 @@ int main(int argc, char **argv) {
 	uint64_t result;
 	switch (device) {
 		case single:
-			result = start_single(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed);
+			result = start_single(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed, display);
 			break;
-		case multi:
+/*		case multi:
 			result = start_multi(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed, num_threads);
 			break;
-	}
+		case gpu:
+			result = start_gpu(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed);
+			break;
+*/	}
 	timer_stop(elapsed);
 	/* get stats from game server */
 	printf("\nThe total number of interactions: %lu\n", result);

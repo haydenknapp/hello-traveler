@@ -11,10 +11,13 @@
 /* header file */
 #include "servers.h"
 
+/* for the display */
+#include "contdisplay.h"
+
 /* print an npc */
-//void print_npc(npc *pr) {
-//	printf("x: %f, y: %f, dir: %f\n", pr->x, pr->y, pr->dir);
-//}
+void print_npc(npc *pr) {
+	printf("x: %f, y: %f, dir: %f\n", pr->x, pr->y, pr->dir);
+}
 
 /* move all of the npcs based on the global speed, their
  * direction and their coordinates. This function does NOT
@@ -55,17 +58,18 @@ static void fill_continent(npc *npcs, uint64_t npcs_per_continent) {
 
 /* return a random float from 0.0 to 360.0 based on the given long ints. */
 static inline float get_random_float_360(uint64_t one, uint64_t two) {
-	uint64_t prod = one * two;
-	return (double)(prod % (360 * DEC)) / DEC;
+	/*uint64_t prod = *(double*)&one * two;
+	return (float)(prod % (360 * DEC)) / DEC;*/
+	return one * two;
 }
 
 /* If one of the x or y values of the npc is 0.0 or 1.0, then the npc must get a new direction. */
 static void give_new_dir(npc *npcs, uint64_t npcs_per_continent, uint64_t extra) {
 	for (uint64_t i = 0; i < npcs_per_continent; ++i) {
-		if (npcs[i].x == 1.0) npcs[i].dir = get_random_float_360(i, extra);
-		if (npcs[i].x == 0.0) npcs[i].dir = get_random_float_360(i, extra);
-		if (npcs[i].y == 1.0) npcs[i].dir = get_random_float_360(i, extra);
-		if (npcs[i].y == 0.0) npcs[i].dir = get_random_float_360(i, extra);
+		if (npcs[i].x == 1.0) npcs[i].dir += get_random_float_360(i, extra);
+		if (npcs[i].x == 0.0) npcs[i].dir += get_random_float_360(i, extra);
+		if (npcs[i].y == 1.0) npcs[i].dir += get_random_float_360(i, extra);
+		if (npcs[i].y == 0.0) npcs[i].dir += get_random_float_360(i, extra);
 	}
 }
 
@@ -94,7 +98,9 @@ static uint64_t get_total_count(npc *npcs, uint64_t npcs_per_continent) {
 	return ret;
 }
 
-uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_continent, float range_to_interact, uint64_t num_iterations, float npc_speed) {
+#ifndef TEST_SINGLE_
+
+uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_continent, float range_to_interact, uint64_t num_iterations, float npc_speed, uint8_t disp) {
 	/* initalize random seed */
 	srand(seed);
 
@@ -106,6 +112,13 @@ uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_
 	for (uint16_t i = 0; i < num_continents; ++i) { 
 		npcs[i] = (npc*) malloc(npcs_per_continent * sizeof(npc));
 		fill_continent(npcs[i], npcs_per_continent);
+	}
+
+	
+	display_cont display;
+	/* Initialize the renderer */
+	if (disp) {
+		display_cont_init(&display, 1000, npcs[0], npcs_per_continent);
 	}
 
 	/* outer loop controls the iterations given. */
@@ -121,10 +134,20 @@ uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_
 			/* check if they interacted */
 			interact_with_all(npcs[cont], npcs_per_continent, range_to_interact);
 		}
+		/* check if the display needs to stop */
+		if (disp) {
+			display_cont_update(&display);
+			if (display.stop)
+				break;
+		}
 	}
 
-	uint64_t ret = 0;
+	/* destory cont drawer */
+	if (disp)
+		display_cont_destroy(&display);
+
 	/* free allocated memory and get total count */
+	uint64_t ret = 0;
 	for (uint16_t i = 0; i < num_continents; ++i) {
 		ret += get_total_count(npcs[i], npcs_per_continent); 
 		free(npcs[i]);
@@ -135,7 +158,7 @@ uint64_t start_single(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_
 	return ret;
 }
 
-#if defined TEST_SINGLE_
+#elif defined TEST_SINGLE_
 /* This is an optional test section. compile with:
  * gcc single.c -g -D TEST_SINGLE_ -o testsingle -lm 
  * to run it
