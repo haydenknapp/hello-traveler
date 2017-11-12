@@ -35,3 +35,4 @@ void display_cont_update(display_cont* this_display) {
 		this_display->stop = 1;
 	SDL_RenderPresent(this_display->renderer);
 }
+

@@ -11,6 +11,7 @@
 /* standard ints */
 #include <stdint.h>
 
+
 /* This is how all npcs will be kept track of. x and y are always between
  * 0.0 and 1.0 inclusive. direction should be between 0.0 and 360.0. The
  * inter value is how many interactions it has received.
@@ -31,7 +32,6 @@ uint64_t start_multi(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_c
 	       		float range_to_interact, uint64_t num_iterations, float npc_speed, uint8_t num_threads);
 
 uint64_t start_gpu(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_continent,
-	       		float range_to_interact, uint64_t num_iterations, float npc_speed);
-
+	       		float range_to_interact, uint64_t num_iterations, float npc_speed, uint8_t display);
 
 #endif

@@ -190,7 +190,7 @@ int main(int argc, char **argv) {
 			-npcpc\tnpcs per continent\n \
 			-rti\trange to interact\n \
 			-i\tnumber of iterations\n \
-			-dev\tthe device (0 = 1 thread, 1 = multi, 2 = GPU)(if multi, then specify number of threads after the number)\n \
+			-dev\tthe device (0 = 1 thread, 1 = multi, 2 = GPU)\n \
 			-spd\tthe speed of each npc(float)\n \
 			-d\t do display (no other args)\n");
 		return 1;
@@ -232,7 +232,7 @@ int main(int argc, char **argv) {
 		printf("Error finding the device specified. Exiting.\n");
 		return 1;
 	}
-	printf("Device is %d and the number of threads is %d\n", device, num_threads);
+	printf("Device is %d.\n", device);
 	if (get_npc_speed(&npc_speed, argc, argv)) {
 		printf("Error parsing npc speed. Exiting.\n");
 		return 1;
@@ -242,7 +242,7 @@ int main(int argc, char **argv) {
 		printf("Error parsing display. Exiting.\n");
 		return 1;
 	}
-	if (display)
+	if (display && device != 1)
 		printf("Display is on.\n");
 	else
 		printf("Display is off.\n");
@@ -257,13 +257,13 @@ int main(int argc, char **argv) {
 		case single:
 			result = start_single(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed, display);
 			break;
-/*		case multi:
-			result = start_multi(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed, num_threads);
+		case multi:
+			result = start_multi(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed, display);
 			break;
 		case gpu:
-			result = start_gpu(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed);
+			result = start_gpu(seed, num_continents, npcs_per_continent, range_to_interact, num_iterations, npc_speed, display);
 			break;
-*/	}
+	}
 	timer_stop(elapsed);
 	/* get stats from game server */
 	printf("\nThe total number of interactions: %lu\n", result);

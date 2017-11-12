@@ -1,8 +1,8 @@
 CC=nvcc
-CFLAGS=-O3 -ccbin clang-3.8 -arch=sm_50
+CFLAGS=-O3  -arch=sm_50
 DEPS=servers.h
-OBJ=main.o single.o contdisplay.o
-LIBS=-lm -lSDL2
+OBJ=main.o single.o contdisplay.o multi.o gpu.o
+LIBS=-lm -lSDL2 -Xcompiler="-pthread"
 
 %.o: %.c* $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS) $(LIBS)
