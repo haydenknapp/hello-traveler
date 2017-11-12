@@ -12,36 +12,27 @@
 #include <math.h>
 /* header file */
 #include "servers.h"
+/* for parsing cuda error strings */
+#include <string.h>
 /* for the display */
 #include "contdisplay.h"
+
+#define TPB 192
+
+/* print the last cuda error. disable with CU_ERR_NO */
+#define print_cu_err() {\
+	char err[128];\
+	memcpy(err, cudaGetErrorString(cudaGetLastError()), 128);\
+	if (strcmp(err, "no error") != 0)\
+		printf("Cuda failure at line %d! Error: %s\n", __LINE__, err);\
+}
+//	cudaError_t err = cudaGetLastError();\
+//	if (err == cudaError)\
+//		printf("Cuda status line %d: %s\n", __LINE__, cudaGetErrorString(err));\
 
 /* print an npc */
 static void print_npc(npc *pr) {
 	printf("x: %f, y: %f, dir: %f\n", pr->x, pr->y, pr->dir);
-}
-
-/* move all of the npcs based on the global speed, their
- * direction and their coordinates. This function does NOT
- * move them back in bounds.
- */
-
-#define PI 3.14159265
-
-static void move_npcs(npc *npcs, uint64_t npcs_per_continent, float npc_speed) {
-	for (uint64_t i = 0; i < npcs_per_continent; ++i) {
-		npcs[i].x += cos(npcs[i].dir * PI / 180.0) * npc_speed;
-		npcs[i].y += sin(npcs[i].dir * PI / 180.0) * npc_speed;
-	}
-}
-
-/* move all of the npcs that are out of bounds, in bounds. */
-static void move_in_bounds(npc *npcs, uint64_t npcs_per_continent) {
-	for (uint64_t i = 0; i < npcs_per_continent; ++i) {
-		if (npcs[i].x > 1.0) npcs[i].x = 1.0;
-		if (npcs[i].x < 0.0) npcs[i].x = 0.0;		
-		if (npcs[i].y > 1.0) npcs[i].y = 1.0;
-		if (npcs[i].y < 0.0) npcs[i].y = 0.0;
-	}
 }
 
 /* Assign every npc a random x, y and direction. Set inter to 0 */
@@ -52,42 +43,55 @@ static void fill_continent(npc *npcs, uint64_t npcs_per_continent) {
 		npcs[i].dir = (float) rand() / (float) RAND_MAX * 360.0f;
 		npcs[i].inter = 0;
 	}
-	/* break here */
+}
+
+/* move all of the npcs based on the global speed, their
+ * direction and their coordinates. This function does NOT
+ * move them back in bounds.
+ */
+
+#define PI 3.14159265
+
+__global__  void move_npcs(npc *npcs, float npc_speed) {
+	uint64_t i = threadIdx.x + blockIdx.x * blockDim.x;
+	npcs[i].x += cos(npcs[i].dir * PI / 180.0) * npc_speed;
+	npcs[i].y += sin(npcs[i].dir * PI / 180.0) * npc_speed;
+}
+
+/* move all of the npcs that are out of bounds, in bounds. */
+__global__ void move_in_bounds(npc *npcs) {	
+	uint64_t i = threadIdx.x + blockIdx.x * blockDim.x;
+	if (npcs[i].x > 1.0) npcs[i].x = 1.0;
+	if (npcs[i].x < 0.0) npcs[i].x = 0.0;		
+	if (npcs[i].y > 1.0) npcs[i].y = 1.0;
+	if (npcs[i].y < 0.0) npcs[i].y = 0.0;
 }
 
 #define DEC 1000
 
-/* return a random float from 0.0 to 360.0 based on the given long ints. */
-static inline float get_random_float_360(uint64_t one, uint64_t two) {
-	/*uint64_t prod = *(double*)&one * two;
-	return (float)(prod % (360 * DEC)) / DEC;*/
-	return one * two;
-}
-
 /* If one of the x or y values of the npc is 0.0 or 1.0, then the npc must get a new direction. */
-static void give_new_dir(npc *npcs, uint64_t npcs_per_continent, uint64_t extra) {
-	for (uint64_t i = 0; i < npcs_per_continent; ++i) {
-		if (npcs[i].x == 1.0) npcs[i].dir += get_random_float_360(i, extra);
-		if (npcs[i].x == 0.0) npcs[i].dir += get_random_float_360(i, extra);
-		if (npcs[i].y == 1.0) npcs[i].dir += get_random_float_360(i, extra);
-		if (npcs[i].y == 0.0) npcs[i].dir += get_random_float_360(i, extra);
-	}
-}
-
-/* utility function to compute distances */
-static inline float dist(npc *one, npc *two) {
-	return sqrt((one->x - two->x) * (one->x - two -> x) + (one->y - two->y) * (one->y - two->y));
+__global__ void give_new_dir(npc *npcs,  uint64_t extra) {
+	uint64_t i = threadIdx.x + blockIdx.x * blockDim.x;
+	if (npcs[i].x > 0.9999) npcs[i].dir += 3.5 * extra;
+	if (npcs[i].x < 0.0001) npcs[i].dir += 3.5 * extra;
+	if (npcs[i].y > 0.9999) npcs[i].dir += 3.5 * extra;
+	if (npcs[i].y < 0.0001) npcs[i].dir += 3.5 * extra;
 }
 
 /* This function has every npc interact with another. */
-static void interact_with_all(npc *npcs, uint64_t npcs_per_continent, float range_to_interact) {
+__global__ void interact_with_all(npc *npcs, uint64_t npcs_per_continent, float range_to_interact) {
 	/* curid is the index of the npcs giving interactions */
-	for (uint64_t curid = 0; curid < npcs_per_continent; ++curid) {
-		/* recid is for the npc that RECieves the interaction (is incremented) */
-		for (uint64_t recid = 0; recid < npcs_per_continent; ++recid) {
-			if (dist(&npcs[curid], &npcs[recid]) < range_to_interact && curid != recid)
-				++npcs[recid].inter;
-		}
+	uint64_t curid = threadIdx.x + blockIdx.x * blockDim.x;
+	/* recid is for the npc that RECieves the interaction (is incremented) */
+	float dist;
+	float xdist;
+	float ydist;
+	for (uint64_t recid = 0; recid < npcs_per_continent; ++recid) {
+		xdist = npcs[recid].x - npcs[curid].x;
+		ydist = npcs[recid].y - npcs[curid].y;
+		dist = sqrt(xdist * xdist + ydist * ydist);
+		if (dist < range_to_interact && curid != recid)
+			++npcs[recid].inter;
 	}
 }
 
@@ -99,7 +103,7 @@ static uint64_t get_total_count(npc *npcs, uint64_t npcs_per_continent) {
 	return ret;
 }
 
-#ifndef TEST_SINGLE_
+#ifndef TEST_GPU_
 
 uint64_t start_gpu(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_continent, float range_to_interact, uint64_t num_iterations, float npc_speed, uint8_t disp) {
 	/* initalize random seed */
@@ -108,58 +112,80 @@ uint64_t start_gpu(uint64_t seed, uint16_t num_continents, uint64_t npcs_per_con
 	/* allocate the correct amount of npcs.
 	 * first malloc is for each continent
 	 * second is to allocate for all of the others
+	 * _d at the end means that the pointer is to the
+	 * device.
 	 */
 	npc **npcs = (npc**) malloc(num_continents * sizeof(npc*));
-	for (uint16_t i = 0; i < num_continents; ++i) { 
+	/* list of device pointers: allocate on CPU */
+	npc **npcs_d = (npc**) malloc(num_continents * sizeof(npc*));
+
+	/* allocate the space for npcs */
+	for (uint16_t i = 0; i < num_continents; ++i) {
+		/* host */
 		npcs[i] = (npc*) malloc(npcs_per_continent * sizeof(npc));
 		fill_continent(npcs[i], npcs_per_continent);
+		/* allocate on device and copy to device */
+		cudaMalloc((void**)&npcs_d[i], npcs_per_continent * sizeof(npc));
+		print_cu_err();
+		cudaMemcpy(npcs_d[i], npcs[i], npcs_per_continent *sizeof(npc), cudaMemcpyHostToDevice);
+		print_cu_err();
 	}
 
 	
-//	display_cont display;
+	display_cont display;
 	/* Initialize the renderer */
-//	if (disp) {
-//		display_cont_init(&display, 1000, npcs[0], npcs_per_continent);
-//	}
+	if (disp) {
+		display_cont_init(&display, 1000, npcs[0], npcs_per_continent);
+	}
 
 	/* outer loop controls the iterations given. */
 	for (uint64_t it = 0; it < num_iterations; ++it) {
 		/* This loop controls every continent */
 		for (uint16_t cont = 0; cont < num_continents; ++cont) {
 			/* move all of the npcs in this continent. */
-			move_npcs(npcs[cont], npcs_per_continent, npc_speed);
+			move_npcs<<<npcs_per_continent/TPB, TPB>>>(npcs_d[cont], npc_speed);
+			print_cu_err();
 			/* move back in bounds if need be */
-			move_in_bounds(npcs[cont], npcs_per_continent);
+			move_in_bounds<<<npcs_per_continent/TPB, TPB>>>(npcs_d[cont]);
+			print_cu_err();
 			/* give them new directions if need be */
-			give_new_dir(npcs[cont], npcs_per_continent, it);
+			give_new_dir<<<npcs_per_continent/TPB, TPB>>>(npcs_d[cont], it);
+			print_cu_err();
 			/* check if they interacted */
-			interact_with_all(npcs[cont], npcs_per_continent, range_to_interact);
+			interact_with_all<<<npcs_per_continent/TPB, TPB>>>(npcs_d[cont], npcs_per_continent, range_to_interact);
+			print_cu_err();
 		}
 		/* check if the display needs to stop */
-//		if (disp) {
-//			display_cont_update(&display);
-//			if (display.stop)
-//				break;
-//		}
+		if (disp) {
+			cudaMemcpy(display.npcs, npcs_d[0], npcs_per_continent * sizeof(npc), cudaMemcpyDeviceToHost);
+			display_cont_update(&display);
+			//print_npc(&display.npcs[0]);
+			if (display.stop)
+				break;
+		}
 	}
 
 	/* destory cont drawer */
-//	if (disp)
-//		display_cont_destroy(&display);
+	if (disp)
+		display_cont_destroy(&display);
 
 	/* free allocated memory and get total count */
 	uint64_t ret = 0;
 	for (uint16_t i = 0; i < num_continents; ++i) {
+		cudaMemcpy(npcs[i], npcs_d[i], npcs_per_continent * sizeof(npc), cudaMemcpyDeviceToHost);
+		print_cu_err();
 		ret += get_total_count(npcs[i], npcs_per_continent); 
 		free(npcs[i]);
+		cudaFree(npcs_d[i]);
 	}
 	free(npcs);
+	free(npcs_d);
 
 	/* return the count */
 	return ret;
 }
 
-#elif defined TEST_SINGLE_
+#elif defined TEST_GPU_
 /* This is an optional test section. compile with:
  * gcc single.c -g -D TEST_SINGLE_ -o testsingle -lm 
  * to run it
@@ -307,20 +333,6 @@ void test_move_in_bounds() {
 	assert(npcs[12].x == 1.0);
 	assert(npcs[12].y == 0.0);	
 	printf("Done testing move into bounds.\n");
-}
-
-void test_get_random_float_360() {
-	printf("\nStarting float 360 tests\n");
-	uint64_t n = 8;
-	uint64_t num = 32123;
-	float ra;
-	for (uint64_t i = 0; i < n; ++i) {
-		ra = get_random_float_360(i, num);
-		printf("Random float for %lu and %lu is: %f\n", i, num, ra);
-		assert(ra <= 360.0 && ra >= 0.0);
-	}
-
-	printf("\nFloat 360 tests are completed.\n");
 }
 
 void test_give_new_dir() {

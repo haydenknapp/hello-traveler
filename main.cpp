@@ -91,7 +91,7 @@ uint8_t get_range_to_interact(float *range_to_interact, int argc, char **argv) {
 	return 0;
 }
 
-#define DEF_NUM_IT (1024)
+#define DEF_NUM_IT (512)
 
 uint8_t get_num_iterations(uint64_t *num_iterations, int argc, char **argv) {
 	for (int i = 0; i < argc - 1; ++i) {
@@ -111,16 +111,11 @@ uint8_t get_num_iterations(uint64_t *num_iterations, int argc, char **argv) {
 enum device_ids{single=0, multi, gpu=2};
 
 #define DEF_DEV (single)
-#define N_THREAD_DEF (8)
 
-uint8_t get_device(uint8_t *device, uint8_t *num_threads, int argc, char **argv) {
+uint8_t get_device(uint8_t *device, int argc, char **argv) {
 	for (int i = 0; i < argc - 1; ++i) {
 		if (strcmp(argv[i], "-dev") == 0) {
 			*device = atoi(argv[i + 1]);
-			if (i + 2 > argc - 1 || argv[i + 2][0] == '-' && *device == 1)
-				*num_threads = N_THREAD_DEF;
-			else
-				*num_threads = atoi(argv[i + 2]);
 		}
 	}
 	if (strcmp(argv[argc - 1], "-dev") == 0 || *device > gpu) {
@@ -132,19 +127,18 @@ uint8_t get_device(uint8_t *device, uint8_t *num_threads, int argc, char **argv)
 	return 0;
 }
 
-#define DEF_NPC_SPD 0.0001
+#define DEF_NPC_SPD 0.01
 
 uint8_t get_npc_speed(float *npc_speed, int argc, char **argv) {
 	for (int i = 0; i < argc - 1; ++i) {
 		if (strcmp(argv[i], "-spd") == 0) {
 			*npc_speed = atof(argv[i + 1]);
+			return 0;
 		}
 	}
 	if (strcmp(argv[argc - 1], "-spd") == 0) {
 		return 1;
 	}
-	else
-		return 0;
 	*npc_speed = DEF_NPC_SPD;
 	return 0;
 }
@@ -171,9 +165,8 @@ uint64_t npcs_per_continent;
 float range_to_interact;
 /* how many iterations the program should run */
 uint64_t num_iterations;
-/* what device we will run on and the number of threads */
+/* what device we will run on */
 uint8_t device;
-uint8_t num_threads;
 /* how fast the npcs move per iteration */
 float npc_speed;
 /* whether the user wants to display using gui or not */
@@ -228,7 +221,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	printf("number of iterations: %lu\n", num_iterations);
-	if (get_device(&device, &num_threads, argc, argv)) {
+	if (get_device(&device, argc, argv)) {
 		printf("Error finding the device specified. Exiting.\n");
 		return 1;
 	}

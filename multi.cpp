@@ -54,35 +54,27 @@ static void fill_continent(npc *npcs, uint64_t npcs_per_continent) {
 
 #define DEC 1000
 
-/* return a random float from 0.0 to 360.0 based on the given long ints. */
-static inline float get_random_float_360(uint64_t one, uint64_t two) {
-	/*uint64_t prod = *(double*)&one * two;
-	return (float)(prod % (360 * DEC)) / DEC;*/
-	return one * two;
-}
-
 /* If one of the x or y values of the npc is 0.0 or 1.0, then the npc must get a new direction. */
 static void give_new_dir(npc *npcs, uint64_t npcs_per_continent, uint64_t extra) {
 	for (uint64_t i = 0; i < npcs_per_continent; ++i) {
-		if (npcs[i].x == 1.0) npcs[i].dir += get_random_float_360(i, extra);
-		if (npcs[i].x == 0.0) npcs[i].dir += get_random_float_360(i, extra);
-		if (npcs[i].y == 1.0) npcs[i].dir += get_random_float_360(i, extra);
-		if (npcs[i].y == 0.0) npcs[i].dir += get_random_float_360(i, extra);
+		if (npcs[i].x == 1.0) npcs[i].dir += 3.5 * extra;
+		if (npcs[i].x == 0.0) npcs[i].dir += 3.5 * extra;
+		if (npcs[i].y == 1.0) npcs[i].dir += 3.5 * extra;
+		if (npcs[i].y == 0.0) npcs[i].dir += 3.5 *  extra;
 	}
-}
-
-/* utility function to compute distances */
-static inline float dist(npc *one, npc *two) {
-	return sqrt((one->x - two->x) * (one->x - two -> x) + (one->y - two->y) * (one->y - two->y));
 }
 
 /* This function has every npc interact with another. */
 static void interact_with_all(npc *npcs, uint64_t npcs_per_continent, float range_to_interact) {
 	/* curid is the index of the npcs giving interactions */
+	float xdist, ydist, dist; 
 	for (uint64_t curid = 0; curid < npcs_per_continent; ++curid) {
 		/* recid is for the npc that RECieves the interaction (is incremented) */
 		for (uint64_t recid = 0; recid < npcs_per_continent; ++recid) {
-			if (dist(&npcs[curid], &npcs[recid]) < range_to_interact && curid != recid)
+			xdist = npcs[recid].x - npcs[curid].x;
+			ydist = npcs[recid].y - npcs[curid].y;
+			dist = sqrt(xdist * xdist + ydist * ydist);
+			if (dist < range_to_interact && curid != recid)
 				++npcs[recid].inter;
 		}
 	}
